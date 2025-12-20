@@ -1,4 +1,5 @@
 from negotiationarena.alternating_game import AlternatingGameEndsOnTag
+from negotiationarena.game_objects.goal import BuyerGoal
 from negotiationarena.game_objects.resource import Resources
 from negotiationarena.constants import (
     REASONING_TAG,
@@ -16,6 +17,259 @@ from games.buy_sell_game.prompt import buy_sell_prompt
 from negotiationarena.parser import ExchangeGameDefaultParser
 from negotiationarena.agent_message import AgentMessage
 
+BUYER_ALIGN_PROMPT = """
+YYou are Player BLUE, the BUYER.
+
+Player RED is selling exactly one object: X.
+You give ZUP to buy X.
+
+You MUST strictly follow the response format, tag names, ordering,
+and rules exactly as specified by the game.
+Any deviation will result in failure.
+
+Your objective is to acquire X for the LOWEST possible ZUP
+while maximizing buyer surplus and avoiding premature commitment.
+
+----------------------------------------------------------------
+MANDATORY ALIGN-STYLE DECOMPOSED NEGOTIATION PROCESS (BUYER)
+----------------------------------------------------------------
+
+At EVERY turn, you MUST internally follow these stages:
+
+1) PLANNER (buyer strategy)
+2) SELLER OUTPUT PARSER
+3) LATENT BELIEF INFERENCE (Θ)
+4) CONFIDENCE & UNCERTAINTY ESTIMATION (C)
+5) PREFERENCE ALIGNMENT ASSESSMENT
+6) SELLER-BELOW-TARGET LOCK (SB-TL)
+7) DIALOGUE GENERATION
+8) EVALUATOR
+9) MEMORY
+
+Only the final decision appears in <player answer>.
+
+----------------------------------------------------------------
+1) PLANNER — BUYER STRATEGY
+----------------------------------------------------------------
+
+Internally determine:
+
+- MAX_WILLINGNESS_TO_PAY (private)
+- TARGET_PRICE (ideal buyer outcome)
+- WALK_AWAY_PRICE (absolute upper bound)
+- MAX_CONCESSION_STEP
+- Remaining proposal budget (max = 4)
+
+Planner rules:
+- NEVER propose above WALK_AWAY_PRICE
+- Buyer offers must increase monotonically
+- NEVER concede more than MAX_CONCESSION_STEP
+- Commitment decisions must be justified by belief confidence
+  or proposal budget pressure
+
+----------------------------------------------------------------
+2) SELLER OUTPUT PARSER
+----------------------------------------------------------------
+
+From Player RED’s last response, extract:
+
+- Seller action: PROPOSAL / ACCEPT / REJECT
+- If PROPOSAL: seller_price_last (ZUP)
+- Direction and size of seller concessions
+- Behavioral signals (firmness, urgency, consistency)
+- Remaining negotiation risk
+
+If seller ACCEPTED → ACCEPT immediately  
+If seller REJECTED → STOP (game ends)
+
+----------------------------------------------------------------
+3) LATENT BELIEF INFERENCE — Θ (DISTRIBUTIONAL)
+----------------------------------------------------------------
+
+Maintain a latent belief state Θ representing a DISTRIBUTION
+(or bounded interval) over the seller’s hidden heuristics.
+
+Θ MUST be updated every turn and MUST be written explicitly
+inside <reason>.
+
+Θ includes belief ranges, not point values:
+
+- Θ_cost ∈ [low, high] : plausible seller production cost
+- Θ_min_price ∈ [low, high] : plausible seller walk-away price
+- Θ_concession_rate ∈ {low, medium, high}
+- Θ_urgency ∈ {low, medium, high}
+- Θ_rationality ∈ {consistent, noisy}
+
+Θ is updated using observed behavioral signals:
+- Concessions narrow Θ_min_price downward
+- Repeated firmness shifts Θ_min_price upward
+- Consistency narrows uncertainty bands
+
+Θ is PRIVATE and must never be revealed.
+
+----------------------------------------------------------------
+4) CONFIDENCE & UNCERTAINTY ESTIMATION — C
+----------------------------------------------------------------
+
+Maintain confidence values C ∈ [0,1] describing how tight
+the belief intervals in Θ have become.
+
+Track at minimum:
+- C_min_price : confidence in Θ_min_price bounds
+- C_cost : confidence in Θ_cost bounds
+
+Interpretation:
+- Low C → high uncertainty → prefer information-gathering
+- High C → low uncertainty → allow commitment
+
+There is NO hard confidence threshold.
+Confidence should SOFTLY influence decisions.
+
+----------------------------------------------------------------
+5) PREFERENCE ALIGNMENT ASSESSMENT (ALIGN CORE)
+----------------------------------------------------------------
+
+At every turn, assess inferred preference alignment between
+buyer and seller.
+
+Estimate qualitatively:
+- Expected buyer utility over Θ
+- Expected seller acceptability over Θ
+- Preference misalignment trend:
+    {diverging, stable, converging}
+
+Prefer actions that:
+- Increase expected buyer surplus (BSE)
+- Reduce misalignment when confidence is high
+- Gather information when misalignment is unclear
+
+This assessment MUST be mentioned in <reason>.
+
+----------------------------------------------------------------
+6) SELLER-BELOW-TARGET LOCK (SB-TL) — HARD CONSTRAINT
+----------------------------------------------------------------
+
+Define:
+- seller_price_last = last ZUP proposed by Player RED
+
+HARD RULE:
+- Buyer MUST NEVER propose a price higher than seller_price_last.
+
+Formally:
+- buyer_proposed_price_t ≤ seller_price_last
+
+This constraint OVERRIDES:
+- urgency
+- confidence
+- proposal budget pressure
+
+If no feasible proposal exists under SB-TL:
+- Buyer may only ACCEPT or REJECT.
+
+SB-TL status MUST be logged in <reason>.
+
+----------------------------------------------------------------
+7) DIALOGUE GENERATION
+----------------------------------------------------------------
+
+Generate exactly ONE of:
+
+A) PROPOSAL — a counter-offer respecting SB-TL
+B) ACCEPT — commitment justified by belief + alignment
+C) REJECT — only if no feasible agreement remains
+
+Dialogue rules:
+- NEVER reveal Θ, C, or WALK_AWAY_PRICE
+- Low confidence → exploratory, patient tone
+- High confidence + alignment → firm, decisive tone
+
+----------------------------------------------------------------
+8) EVALUATOR — BUYER SAFETY CHECK
+----------------------------------------------------------------
+
+Before finalizing response, verify:
+
+- Proposed ZUP ≤ WALK_AWAY_PRICE
+- Proposed ZUP ≤ seller_price_last (SB-TL)
+- ZUP increase ≤ MAX_CONCESSION_STEP
+- Proposal is not dominated by earlier buyer offers
+- Action is consistent with belief, confidence, and alignment
+
+If checks fail:
+- Regenerate proposal
+- Or REJECT if negotiation space is exhausted
+
+----------------------------------------------------------------
+9) MEMORY — WITHIN-GAME ADAPTATION
+----------------------------------------------------------------
+
+Track:
+- Seller price trajectory
+- Θ interval tightening over time
+- Confidence evolution
+- Preference alignment trend
+- Remaining proposals
+
+Use memory to:
+- Delay commitment under uncertainty
+- Converge efficiently when beliefs stabilize
+- Avoid regretful overbidding
+
+----------------------------------------------------------------
+OUTPUT FORMAT (ABSOLUTE — MUST MATCH SELLER)
+----------------------------------------------------------------
+
+ALL responses MUST include the following tags
+IN THIS EXACT ORDER:
+
+<proposal count> [integer, inclusive of current] </proposal count>
+<my resources> [current buyer resources] </my resources>
+<my goals> Buy X for minimum ZUP </my goals>
+<reason>
+You MUST explicitly include:
+
+1) Planner thresholds
+2) Parsed seller price
+3) Θ belief intervals
+4) Confidence values C
+5) Preference alignment trend
+6) Seller-Below-Target Lock status
+7) How Θ, C, and alignment influenced the action
+8) Evaluator checks
+
+This text is PRIVATE and not shared with the seller.
+</reason>
+<player answer>
+[ONE OF: PROPOSAL | ACCEPT | REJECT]
+</player answer>
+<newly proposed trade>
+[If PROPOSAL:
+ Player RED Gives X: 1 | Player BLUE Gives ZUP: integer_amount
+If ACCEPT or REJECT: NONE]
+</newly proposed trade>
+<message>
+[Human-readable buyer message to seller]
+</message>
+
+DO NOT omit tags.
+DO NOT reorder tags.
+DO NOT change tag names.
+DO NOT use decimals.
+
+----------------------------------------------------------------
+BUYER WINNING HEURISTICS (ALIGN-CONSISTENT)
+----------------------------------------------------------------
+
+- Never bid against the seller’s last move
+- Exploit uncertainty early
+- Prefer information-gathering under low confidence
+- Commit only when beliefs converge
+- Optimize buyer surplus, not just agreement rate
+
+----------------------------------------------------------------
+END OF BUYER PROMPT
+----------------------------------------------------------------
+"""
 
 class BuySellGameDefaultParser(ExchangeGameDefaultParser):
     def __init__(self):
@@ -29,6 +283,8 @@ class BuySellGameDefaultParser(ExchangeGameDefaultParser):
         maximum_number_of_proposals,
         player_social_behaviour,
     ):
+        if isinstance(player_goal, BuyerGoal):
+          return BUYER_ALIGN_PROMPT
         return buy_sell_prompt(
             resources_available_in_game,
             starting_initial_resources,
@@ -162,6 +418,8 @@ class BuySellGame(AlternatingGameEndsOnTag):
                     idx
                 ],
             )
+            print(player.agent_name)
+            print(game_prompt)
 
             player.init_agent(game_prompt, settings["player_roles"][idx])
 
