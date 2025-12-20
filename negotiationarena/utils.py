@@ -49,7 +49,17 @@ def from_name_and_tag_to_message(name, tag):
 
 
 def text_to_dict(s):
-    return {k: int(v) for k, v in (item.split(": ") for item in s.split(", "))}
+    result = {}
+    for item in s.split(","):
+        item = item.strip()
+        if ": " not in item:
+            continue  # skip malformed entries
+        k, v = item.split(": ", 1)
+        try:
+            result[k.strip()] = int(v.strip())
+        except ValueError:
+            continue
+    return result
 
 
 def get_next_filename(prefix, folder="."):

@@ -11,8 +11,12 @@ class Resources:
 
     @classmethod
     def from_string(cls, string: str):
-        resource_dict = text_to_dict(string)
-        return cls(resource_dict)
+        try:
+            resource_dict = text_to_dict(string)
+            return cls(resource_dict)
+        except Exception:
+            return cls({})
+
 
     def value(self):
         return sum(self.resource_dict.values())
