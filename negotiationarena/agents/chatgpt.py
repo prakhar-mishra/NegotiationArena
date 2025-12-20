@@ -70,7 +70,7 @@ class ChatGPTAgent(Agent):
             model=self.model,
             messages=self.conversation,
             temperature=self.temperature,
-            max_tokens=self.max_tokens,
+            max_completion_tokens=self.max_tokens,
             seed=self.seed,
         )
 
