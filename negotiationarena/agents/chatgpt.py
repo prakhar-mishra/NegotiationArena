@@ -17,7 +17,7 @@ class ChatGPTAgent(Agent):
         agent_name: str,
         model="gpt-4-1106-preview",
         temperature=0.7,
-        max_tokens=1000,
+        max_tokens=4000,
         seed=None,
     ):
         super().__init__(agent_name)
