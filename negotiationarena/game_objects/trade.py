@@ -22,6 +22,14 @@ class Trade:
         self.resources_from_second_agent = Resources(trade[self.keys[1]])
         self.raw_string = raw_string
 
+        print("=== TRADE DEBUG ===")
+        print("RAW trade object:", trade)
+        print("trade type:", type(trade))
+        print("trade keys:", list(trade.keys()))
+        print("number of keys:", len(trade))
+        print("===================")
+
+
     @classmethod
     def from_string(cls, string: str):
         trade = eval(string)
