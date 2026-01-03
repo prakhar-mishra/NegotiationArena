@@ -18,16 +18,16 @@ class Trade:
         """
         self.keys = sorted(list(trade.keys()), reverse=True)
 
-        self.resources_from_first_agent = Resources(trade[self.keys[0]])
-        self.resources_from_second_agent = Resources(trade[self.keys[1]])
-        self.raw_string = raw_string
-
         print("=== TRADE DEBUG ===")
         print("RAW trade object:", trade)
         print("trade type:", type(trade))
         print("trade keys:", list(trade.keys()))
         print("number of keys:", len(trade))
         print("===================")
+
+        self.resources_from_first_agent = Resources(trade[self.keys[0]])
+        self.resources_from_second_agent = Resources(trade[self.keys[1]])
+        self.raw_string = raw_string
 
 
     @classmethod
