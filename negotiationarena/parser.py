@@ -84,4 +84,9 @@ class ExchangeGameDefaultParser(GameParser, ABC):
         contents = get_tag_contents(response, interest_tag).lstrip().rstrip()
         if contents == REFUSING_OR_WAIT_TAG:
             return contents
-        return Trade(self.parse_proposed_trade(contents))
+        try:
+            return Trade(self.parse_proposed_trade(contents))
+        except Exception as e:
+            print("FAILED TO PARSE TRADE CONTENT:")
+            print(contents)
+            raise

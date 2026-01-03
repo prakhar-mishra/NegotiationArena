@@ -418,8 +418,6 @@ class BuySellGame(AlternatingGameEndsOnTag):
                     idx
                 ],
             )
-            print(player.agent_name)
-            print(game_prompt)
 
             player.init_agent(game_prompt, settings["player_roles"][idx])
 
