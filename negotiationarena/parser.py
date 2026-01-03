@@ -67,7 +67,7 @@ class ExchangeGameDefaultParser(GameParser, ABC):
         trade = {}
 
         c = s.strip().replace("\n", " ")
-        players = [p.strip() for p in contents.split("|") if p.strip()]
+        players = [p.strip() for p in c.split("|") if p.strip()]
 
         for player in players:
             if "Player" not in player or "Gives" not in player:
