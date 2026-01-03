@@ -188,6 +188,14 @@ class AlternatingGame(Game):
 
             # player to take a step/action based on current ratbench state
             response = self.players[self.turn].step(message)
+            print("\n===== RAW AGENT RESPONSE =====")
+            print(f"Iteration: {self.current_iteration}")
+            print(f"Turn: {self.turn}")
+            print(f"Player: {self.players[self.turn].name}")
+            print("Response:")
+            print(response)
+            print("===== END RAW RESPONSE =====\n")
+
             # print(response)
 
             # update ratbench state based on players and player response
