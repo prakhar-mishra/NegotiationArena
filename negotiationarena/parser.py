@@ -67,8 +67,15 @@ class ExchangeGameDefaultParser(GameParser, ABC):
         trade = {}
 
         c = s.strip().replace("\n", " ")
-        for player in c.split("|"):
-            player_name = player.split("Player")[1].split("Gives")[0].strip()
+        players = [p.strip() for p in contents.split("|") if p.strip()]
+
+        for player in players:
+            if "Player" not in player or "Gives" not in player:
+                raise ValueError(f"Malformed trade entry: '{player}'")
+
+            player_name = player.split("Player", 1)[1].split("Gives", 1)[0].strip()
+        # for player in c.split("|"):
+        #     player_name = player.split("Player")[1].split("Gives")[0].strip()
             resources = player.split("Gives")[1].strip()
             # NOTE: We are casting the resources to int.
             parse_resources = {
