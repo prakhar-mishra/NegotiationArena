@@ -191,7 +191,6 @@ class AlternatingGame(Game):
             print("\n===== RAW AGENT RESPONSE =====")
             print(f"Iteration: {self.current_iteration}")
             print(f"Turn: {self.turn}")
-            print(f"Player: {self.players[self.turn].name}")
             print("Response:")
             print(response)
             print("===== END RAW RESPONSE =====\n")
