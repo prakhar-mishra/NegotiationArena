@@ -458,6 +458,7 @@ class BuySellGame(AlternatingGameEndsOnTag):
 
             if player_response == ACCEPTING_TAG:
                 # get proposed trade
+                print(self.game_state)
                 final_resources = [
                     proposed_trade.execute_trade(res, idx)
                     for idx, res in enumerate(initial_resources)
